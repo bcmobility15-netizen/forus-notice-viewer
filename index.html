@@ -14,8 +14,9 @@ main{max-width:840px;margin:auto}
 [hidden]{display:none!important}
 img{display:block;width:100%;height:auto}
 #paper{position:relative}
+.notice-slice{position:relative;width:100%;aspect-ratio:var(--slice-aspect);background-image:var(--notice-image);background-repeat:no-repeat;background-size:100% var(--slice-scale);background-position:0 var(--slice-offset)}
 button{font:inherit;color:#174f56;cursor:pointer}
-.photo-hit{position:absolute;display:flex;align-items:flex-end;justify-content:center;min-width:0;border:0;border-radius:3px;padding:0 0 clamp(1px,.26vw,3px);background:transparent}
+.photo-hit{position:absolute;top:0;left:37.638889%;width:27.777778%;height:100%;display:flex;align-items:flex-end;justify-content:center;min-width:0;border:0;border-radius:3px;padding:0 0 clamp(1px,.26vw,3px);background:transparent}
 .photo-label{font-size:clamp(7px,2.1vw,11px);font-weight:650;line-height:1;color:#22636a}
 .photo-hit:hover{background:rgb(33 82 88 / .06)}
 button:focus-visible,.photo-tools a:focus-visible{outline:2px solid #22636a;outline-offset:-2px}
@@ -29,14 +30,16 @@ button:focus-visible,.photo-tools a:focus-visible{outline:2px solid #22636a;outl
 a{color:#174f56;text-underline-offset:3px}
 #other-photos{padding:0 18px 16px}
 #other-photos li{margin:6px 0}
-.payment{margin:4px 4.1667% 24px;border-top:2px solid #215258;background:#f1f3f3}
-.payment h2{margin:0;padding:9px 12px;font-size:clamp(13px,3vw,16px);color:#215258}
-.payment-entry{padding:8px 12px 10px;border-top:1px solid #d7dfde}
-.payment-entry h3{margin:0 0 2px;font-size:clamp(11px,2.8vw,13px);font-weight:650}
-.payment-entry p{margin:0;font-size:clamp(11px,2.7vw,13px);color:#526468}
-.payment-entry ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:4px 10px;margin:5px 0 0;padding:0;list-style:none}
-.payment-entry li{font-size:clamp(11px,2.8vw,14px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.payment-entry .account-hidden{color:#96422e}
+.account-row{display:grid;grid-template-columns:15.151515% minmax(0,1fr);margin:0 4.166667%;border-bottom:1px solid #d7dfde}
+.account-row::before{content:'';background:#f0f5f3;border-right:1px solid #d7dfde}
+.account-band{min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;margin:0 1.1% 4px;padding:5px 8px;background:#efefef;color:#243234;font-size:clamp(10px,2.65vw,13px);line-height:1.5}
+.account-band strong{font-weight:700;color:#474747;white-space:nowrap}
+.account-band p{margin:0}
+.account-band ul{flex:1 1 220px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,129px),1fr));gap:3px 10px;list-style:none;margin:0;padding:0}
+.account-band li{font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.account-band .account-hidden{color:#96422e}
+.account-context{margin:0 0 4px;font-size:12px}
+#account-fallback .account-band{margin:0 4.166667% 4px;display:block}
 </style>
 </head>
 <body>
@@ -51,10 +54,7 @@ a{color:#174f56;text-underline-offset:3px}
       <summary>원본 사진</summary>
       <ul id="other-links"></ul>
     </details>
-    <section id="payment" class="payment" aria-labelledby="payment-title">
-      <h2 id="payment-title">건별 납부계좌</h2>
-      <div id="payment-cases"></div>
-    </section>
+    <section id="account-fallback" aria-label="건별 납부계좌" hidden></section>
   </section>
   <section id="photo" aria-label="적발 사진" hidden>
     <div class="photo-tools">
@@ -118,7 +118,7 @@ function archivedRows(image, count) {
   }
   boundaries.push(end);
   if (boundaries.length !== count + 1) return null;
-  return boundaries.slice(0,-1).map((y,index) => ({top:y/height,height:(boundaries[index+1]-y)/height}));
+  return boundaries.slice(0,-1).map((y,index) => ({top:y,bottom:boundaries[index+1]}));
 }
 
 function sourceOf(entry) {
@@ -188,62 +188,96 @@ function orderNotices(entries) {
     a.dueDate.localeCompare(b.dueDate) || b.amount-a.amount || a.violationAt.localeCompare(b.violationAt));
 }
 
-function installPhotoButtons(entries) {
+function photoButton(entry) {
+  const source = sourceOf(entry);
+  if (!source) return null;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'photo-hit';
+  button.setAttribute('aria-label','적발경위 '+(entry.violation || '')+' 사진 보기');
+  const label = document.createElement('span');
+  label.className = 'photo-label';
+  label.textContent = '[사진보기]';
+  button.appendChild(label);
+  button.addEventListener('click', () => selectPhoto(source,button));
+  return button;
+}
+
+function accountBand(entry) {
+  const block = document.createElement('div');
+  block.className = 'account-band';
+  const heading = document.createElement('strong');
+  heading.textContent = '납부계좌';
+  block.appendChild(heading);
+  const accounts = !entry.overdue && entry.dueDate && Array.isArray(entry.accounts) ? entry.accounts.slice(0,3) : [];
+  if (accounts.length) {
+    const list = document.createElement('ul');
+    accounts.forEach(account => {
+      const number = document.createElement('li');
+      number.textContent = account;
+      list.appendChild(number);
+    });
+    block.appendChild(list);
+  } else {
+    const status = document.createElement('p');
+    status.textContent = entry.overdue ? '기한 경과 · 최신 금액·계좌 확인 필요' : '계좌 정보 확인 필요';
+    if (entry.overdue) status.className = 'account-hidden';
+    block.appendChild(status);
+  }
+  return block;
+}
+
+function noticeSlice(top,bottom) {
+  const slice = document.createElement('div');
+  const height = bottom - top;
+  slice.className = 'notice-slice';
+  slice.style.setProperty('--slice-aspect',png.naturalWidth+' / '+height);
+  slice.style.setProperty('--slice-scale',(png.naturalHeight / height * 100)+'%');
+  slice.style.setProperty('--slice-offset',(top / (png.naturalHeight - height) * 100)+'%');
+  return slice;
+}
+
+function displayNotice(entries) {
   const rows = archivedRows(png,entries.length);
   const key = entry => JSON.stringify([entry.dueDate,entry.amount,entry.violationAt]);
   const ambiguous = entries.some((entry,index) => index > 0 &&
     key(entry) === key(entries[index-1]) && entry.source !== entries[index-1].source);
   if (!rows || ambiguous) {
     showSourceList(entries);
+    const accounts = byId('account-fallback');
+    entries.forEach(entry => {
+      const block = accountBand(entry);
+      const date = document.createElement('h3');
+      date.className = 'account-context';
+      date.textContent = entry.violationAt || entry.violation || '고지 내역';
+      block.prepend(date);
+      accounts.appendChild(block);
+    });
+    accounts.hidden = false;
     return;
   }
-  entries.forEach((entry,index) => {
-    const source = sourceOf(entry);
-    if (!source) return;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'photo-hit';
-    button.setAttribute('aria-label','적발경위 '+(entry.violation || '')+' 사진 보기');
-    const label = document.createElement('span');
-    label.className = 'photo-label';
-    label.textContent = '[사진보기]';
-    button.appendChild(label);
-    button.style.left = (542 / 1440 * 100)+'%';
-    button.style.width = (400 / 1440 * 100)+'%';
-    button.style.top = (rows[index].top * 100)+'%';
-    button.style.height = (rows[index].height * 100)+'%';
-    button.addEventListener('click', () => selectPhoto(source,button));
-    paper.appendChild(button);
-  });
-}
 
-function showPaymentAccounts(entries) {
-  const paymentCases = byId('payment-cases');
-  entries.forEach(entry => {
-    const block = document.createElement('section');
-    block.className = 'payment-entry';
-    const heading = document.createElement('h3');
-    const stamp = entry.violationAt.slice(0,16).replace(/-/g,'.');
-    const amount = Number.isFinite(entry.amount) ? entry.amount.toLocaleString('ko-KR')+'원' : '';
-    heading.textContent = [stamp,amount].filter(Boolean).join(' · ') || '고지 내역';
-    block.appendChild(heading);
-    const accounts = !entry.overdue && entry.dueDate && Array.isArray(entry.accounts) ? entry.accounts : [];
-    const status = document.createElement('p');
-    status.textContent = entry.overdue ? '납부기한 경과 · 계좌 숨김' :
-      accounts.length ? '납부기한 '+entry.dueDate.replace(/-/g,'.') : '계좌 정보 확인 필요';
-    if (entry.overdue) status.className = 'account-hidden';
-    block.appendChild(status);
-    if (accounts.length) {
-      const list = document.createElement('ul');
-      accounts.forEach(account => {
-        const number = document.createElement('li');
-        number.textContent = account;
-        list.appendChild(number);
-      });
-      block.appendChild(list);
-    }
-    paymentCases.appendChild(block);
+  // Each slice uses the same decoded PNG, so attaching rows adds no image requests.
+  paper.style.setProperty('--notice-image','url("'+png.src+'")');
+  const bands = document.createDocumentFragment();
+  bands.appendChild(noticeSlice(0,rows[0].top));
+  entries.forEach((entry,index) => {
+    const row = rows[index];
+    const group = document.createElement('section');
+    group.className = 'notice-entry';
+    group.setAttribute('aria-label',[entry.violationAt,entry.violation].filter(Boolean).join(' · ') || '고지 내역');
+    const detail = noticeSlice(row.top,row.bottom);
+    const button = photoButton(entry);
+    if (button) detail.appendChild(button);
+    const account = document.createElement('div');
+    account.className = 'account-row';
+    account.appendChild(accountBand(entry));
+    group.append(detail,account);
+    bands.appendChild(group);
   });
+  bands.appendChild(noticeSlice(rows.at(-1).bottom,png.naturalHeight));
+  png.hidden = true;
+  paper.appendChild(bands);
 }
 
 async function load() {
@@ -274,11 +308,10 @@ async function load() {
     png.src = payload.png;
     await png.decode();
     png.alt = payload.vehicle + ' 차량별 과태료 고지서';
+    notice.setAttribute('aria-label',png.alt);
+    displayNotice(orderNotices(payload.notices));
     byId('loading').hidden = true;
     notice.hidden = false;
-    const entries = orderNotices(payload.notices);
-    installPhotoButtons(entries);
-    showPaymentAccounts(entries);
   } catch {
     status.textContent = '고지서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
     byId('loading').hidden = false;
