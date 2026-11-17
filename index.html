@@ -24,7 +24,8 @@ img{display:block;width:100%;height:auto;margin-top:15px;background:white}
 .photo-toggle:focus-visible{outline:2px solid #145d67;outline-offset:2px}
 .photo-label{flex-shrink:0;font-size:.82rem;text-decoration:underline;text-underline-offset:3px}
 .photo-preview{grid-column:1 / -1;min-width:0;margin:6px 0;padding:8px;border:1px solid #d3e0de;border-radius:5px;background:#f4f8f7}
-.photo-preview img{max-height:70vh;margin:0;object-fit:contain;background:#f4f8f7}
+.photo-media{max-height:min(70vh,680px);overflow:auto}
+.photo-media img{margin:0;background:#f4f8f7}
 .photo-preview p{padding:3px 6px}
 [hidden]{display:none!important}
 </style>
@@ -48,7 +49,7 @@ img{display:block;width:100%;height:auto;margin-top:15px;background:white}
       </dd>
       <dd id="photo-preview" class="photo-preview" hidden>
         <p id="photo-status" role="status"></p>
-        <div id="photo-media"></div>
+        <div id="photo-media" class="photo-media" role="region" aria-label="원본 사진 미리보기" tabindex="0"></div>
       </dd>
       <dt>납부기한</dt><dd id="due"></dd>
       <dt>고지금액</dt><dd id="amount"></dd>
