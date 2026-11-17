@@ -15,18 +15,28 @@ main{max-width:840px;margin:auto}
 img{display:block;width:100%;height:auto}
 #paper{position:relative}
 button{font:inherit;color:#174f56;cursor:pointer}
-.photo-hit{position:absolute;display:flex;align-items:center;justify-content:flex-end;min-width:0;border:0;border-radius:3px;padding:0 4px 0 0;background:transparent}
-.photo-hit::after{content:'›';font-size:clamp(12px,3vw,22px);line-height:1;color:#22636a}
+.photo-hit{position:absolute;display:flex;align-items:flex-end;justify-content:center;min-width:0;border:0;border-radius:3px;padding:0 0 clamp(1px,.26vw,3px);background:transparent}
+.photo-label{font-size:clamp(7px,2.1vw,11px);font-weight:650;line-height:1;color:#22636a}
 .photo-hit:hover{background:rgb(33 82 88 / .06)}
 button:focus-visible,.photo-tools a:focus-visible{outline:2px solid #22636a;outline-offset:-2px}
 .notice-status{padding:24px;text-align:center}
 .notice-status button{border:1px solid #d7dfde;border-radius:4px;padding:8px 14px;background:white}
-.photo-tools{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 14px;background:#fff;border-bottom:1px solid #d7dfde}
-.photo-tools button{min-height:42px;border:0;padding:0 6px;background:white;font-weight:650}
+.photo-tools{position:sticky;z-index:1;top:0;padding:8px 14px;background:#fff;border-bottom:1px solid #d7dfde}
+.photo-tools button{min-height:48px;border:0;border-radius:6px;padding:0 18px;background:#215258;color:#fff;font-weight:700}
+.photo-tools button:hover{background:#17434a}
+.photo-tools button:focus-visible{outline:2px solid #fff;outline-offset:-4px}
+@media(max-width:550px){.photo-tools button{width:100%}}
 a{color:#174f56;text-underline-offset:3px}
-.photo-tools a{padding:8px 4px}
 #other-photos{padding:0 18px 16px}
 #other-photos li{margin:6px 0}
+.payment{margin:4px 4.1667% 24px;border-top:2px solid #215258;background:#f1f3f3}
+.payment h2{margin:0;padding:9px 12px;font-size:clamp(13px,3vw,16px);color:#215258}
+.payment-entry{padding:8px 12px 10px;border-top:1px solid #d7dfde}
+.payment-entry h3{margin:0 0 2px;font-size:clamp(11px,2.8vw,13px);font-weight:650}
+.payment-entry p{margin:0;font-size:clamp(11px,2.7vw,13px);color:#526468}
+.payment-entry ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));gap:4px 10px;margin:5px 0 0;padding:0;list-style:none}
+.payment-entry li{font-size:clamp(11px,2.8vw,14px);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.payment-entry .account-hidden{color:#96422e}
 </style>
 </head>
 <body>
@@ -41,11 +51,14 @@ a{color:#174f56;text-underline-offset:3px}
       <summary>원본 사진</summary>
       <ul id="other-links"></ul>
     </details>
+    <section id="payment" class="payment" aria-labelledby="payment-title">
+      <h2 id="payment-title">건별 납부계좌</h2>
+      <div id="payment-cases"></div>
+    </section>
   </section>
   <section id="photo" aria-label="적발 사진" hidden>
     <div class="photo-tools">
-      <button type="button" id="back">‹ 고지서</button>
-      <a id="original" rel="noopener noreferrer" target="_blank">Drive 원본 열기</a>
+      <button type="button" id="back">← 고지서로 돌아가기</button>
     </div>
     <p id="photo-status" class="notice-status" role="status"></p>
     <div id="photo-body"></div>
@@ -118,7 +131,6 @@ function selectPhoto(source, trigger) {
   returnScroll = window.scrollY;
   notice.hidden = true;
   photo.hidden = false;
-  byId('original').href = source.url;
   const status = byId('photo-status');
   status.textContent = '사진을 불러오는 중입니다.';
   status.hidden = false;
@@ -135,7 +147,7 @@ function selectPhoto(source, trigger) {
     image.hidden = false;
   }, {once:true});
   image.addEventListener('error', () => {
-    if (image.isConnected) status.textContent = '미리보기를 불러오지 못했습니다. Drive 원본을 열어 주세요.';
+    if (image.isConnected) status.textContent = '사진을 불러오지 못했습니다. 고지서로 돌아가 다시 선택해 주세요.';
   }, {once:true});
   photoBody.replaceChildren(image);
   const preview = new URL('https://drive.google.com/thumbnail');
@@ -171,30 +183,66 @@ function showSourceList(entries) {
   byId('other-photos').hidden = !links.children.length;
 }
 
+function orderNotices(entries) {
+  return entries.slice().sort((a,b) =>
+    a.dueDate.localeCompare(b.dueDate) || b.amount-a.amount || a.violationAt.localeCompare(b.violationAt));
+}
+
 function installPhotoButtons(entries) {
   const rows = archivedRows(png,entries.length);
   const key = entry => JSON.stringify([entry.dueDate,entry.amount,entry.violationAt]);
-  const ordered = entries.slice().sort((a,b) =>
-    a.dueDate.localeCompare(b.dueDate) || b.amount-a.amount || a.violationAt.localeCompare(b.violationAt));
-  const ambiguous = ordered.some((entry,index) => index > 0 &&
-    key(entry) === key(ordered[index-1]) && entry.source !== ordered[index-1].source);
+  const ambiguous = entries.some((entry,index) => index > 0 &&
+    key(entry) === key(entries[index-1]) && entry.source !== entries[index-1].source);
   if (!rows || ambiguous) {
     showSourceList(entries);
     return;
   }
-  ordered.forEach((entry,index) => {
+  entries.forEach((entry,index) => {
     const source = sourceOf(entry);
     if (!source) return;
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'photo-hit';
     button.setAttribute('aria-label','적발경위 '+(entry.violation || '')+' 사진 보기');
+    const label = document.createElement('span');
+    label.className = 'photo-label';
+    label.textContent = '[사진보기]';
+    button.appendChild(label);
     button.style.left = (542 / 1440 * 100)+'%';
     button.style.width = (400 / 1440 * 100)+'%';
     button.style.top = (rows[index].top * 100)+'%';
     button.style.height = (rows[index].height * 100)+'%';
     button.addEventListener('click', () => selectPhoto(source,button));
     paper.appendChild(button);
+  });
+}
+
+function showPaymentAccounts(entries) {
+  const paymentCases = byId('payment-cases');
+  entries.forEach(entry => {
+    const block = document.createElement('section');
+    block.className = 'payment-entry';
+    const heading = document.createElement('h3');
+    const stamp = entry.violationAt.slice(0,16).replace(/-/g,'.');
+    const amount = Number.isFinite(entry.amount) ? entry.amount.toLocaleString('ko-KR')+'원' : '';
+    heading.textContent = [stamp,amount].filter(Boolean).join(' · ') || '고지 내역';
+    block.appendChild(heading);
+    const accounts = !entry.overdue && entry.dueDate && Array.isArray(entry.accounts) ? entry.accounts : [];
+    const status = document.createElement('p');
+    status.textContent = entry.overdue ? '납부기한 경과 · 계좌 숨김' :
+      accounts.length ? '납부기한 '+entry.dueDate.replace(/-/g,'.') : '계좌 정보 확인 필요';
+    if (entry.overdue) status.className = 'account-hidden';
+    block.appendChild(status);
+    if (accounts.length) {
+      const list = document.createElement('ul');
+      accounts.forEach(account => {
+        const number = document.createElement('li');
+        number.textContent = account;
+        list.appendChild(number);
+      });
+      block.appendChild(list);
+    }
+    paymentCases.appendChild(block);
   });
 }
 
@@ -228,7 +276,9 @@ async function load() {
     png.alt = payload.vehicle + ' 차량별 과태료 고지서';
     byId('loading').hidden = true;
     notice.hidden = false;
-    installPhotoButtons(payload.notices);
+    const entries = orderNotices(payload.notices);
+    installPhotoButtons(entries);
+    showPaymentAccounts(entries);
   } catch {
     status.textContent = '고지서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
     byId('loading').hidden = false;
