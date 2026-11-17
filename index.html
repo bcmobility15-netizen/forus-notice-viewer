@@ -31,7 +31,8 @@ a{color:#174f56;text-underline-offset:3px}
 #other-photos{padding:0 18px 16px}
 #other-photos li{margin:6px 0}
 #other-photos button{padding:0;border:0;background:none;text-align:left;text-decoration:underline;text-underline-offset:3px}
-.account-row{display:grid;grid-template-columns:15.151515% minmax(0,1fr);margin:0 4.166667%;border-bottom:1px solid #d7dfde}
+.account-row{--vehicle-column:15.151515%;display:grid;grid-template-columns:var(--vehicle-column) minmax(0,1fr);margin:0 4.166667%}
+.notice-entry:not(:last-of-type) .account-row{background:linear-gradient(to right,transparent var(--vehicle-column),#d7dfde var(--vehicle-column)) bottom/100% 1px no-repeat}
 .account-row::before{content:'';background:#f0f5f3;border-right:1px solid #d7dfde}
 .account-band{min-width:0;display:flex;align-items:baseline;flex-wrap:wrap;gap:3px 10px;margin:0 1.1% 4px;padding:5px 8px;background:#efefef;color:#243234;font-size:clamp(10px,2.65vw,13px);line-height:1.5}
 .account-band strong{font-weight:700;color:#474747;white-space:nowrap}
@@ -42,7 +43,8 @@ a{color:#174f56;text-underline-offset:3px}
 .account-context{margin:0 0 4px;font-size:12px}
 #account-fallback .account-band{margin:0 4.166667% 4px;display:block}
 @media(max-width:550px){
-  .account-band{font-size:clamp(7px,1.9vw,10px);line-height:1.45;gap:2px 5px;margin-bottom:2px;padding:3px 5px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  .photo-label{font-size:clamp(6px,1.8vw,10px);-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  .account-band{font-size:clamp(6px,1.72vw,9.25px);line-height:1.45;gap:2px 5px;margin-bottom:2px;padding:3px 5px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .account-band ul{flex-basis:150px;grid-template-columns:repeat(auto-fit,minmax(min(100%,92px),1fr));gap:1px 5px}
   .account-context{font-size:inherit}
 }
@@ -118,11 +120,13 @@ function archivedRows(image, count) {
     }
   }
   if (!start) return null;
+  // The closing rule is part of the footer so it stays below the final account row.
+  const closingRule = end - 2;
   const boundaries = [start];
-  for (let y = start; y < end - 1; y++) {
+  for (let y = start; y < closingRule - 1; y++) {
     if (colorAt(y,235,239,239) && !colorAt(y + 1,235,239,239)) boundaries.push(y + 1);
   }
-  boundaries.push(end);
+  boundaries.push(closingRule);
   if (boundaries.length !== count + 1) return null;
   return boundaries.slice(0,-1).map((y,index) => ({top:y,bottom:boundaries[index+1]}));
 }
