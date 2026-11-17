@@ -7,11 +7,11 @@
 <meta name="referrer" content="no-referrer">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://script.google.com https://script.googleusercontent.com; img-src data: https://drive.google.com https://lh3.googleusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>포어스바이크 차량 과태료 안내</title>
-<style>
+<스타일>
 :root{color-scheme:light;background:#fff;color:#243234;font:15px/1.5 system-ui,"Malgun Gothic",sans-serif}
 body{margin:0}
 main{max-width:840px;margin:auto}
-[hidden]{display:none!important}
+[숨김]{display:none!important}
 img{display:block;width:100%;height:auto}
 #paper{position:relative}
 .notice-slice{position:relative;width:100%;aspect-ratio:var(--slice-aspect);background-image:var(--notice-image);background-repeat:no-repeat;background-size:100% var(--slice-scale);background-position:0 var(--slice-offset)}
@@ -19,7 +19,7 @@ button{font:inherit;color:#174f56;cursor:pointer}
 .photo-hit{position:absolute;top:0;left:37.638889%;width:27.777778%;height:100%;display:flex;align-items:flex-end;justify-content:center;min-width:0;border:0;border-radius:3px;padding:0 0 clamp(1px,.26vw,3px);background:transparent}
 .photo-label{font-size:clamp(7px,2.1vw,11px);font-weight:650;line-height:1;color:#22636a}
 .photo-hit:hover{background:rgb(33 82 88 / .06)}
-button:focus-visible,.photo-tools a:focus-visible{outline:2px solid #22636a;outline-offset:-2px}
+버튼:focus-visible,.photo-tools a:focus-visible{outline:2px solid #22636a;outline-offset:-2px}
 .notice-status{padding:24px;text-align:center}
 .notice-status button{border:1px solid #d7dfde;border-radius:4px;padding:8px 14px;background:white}
 .photo-tools{position:sticky;z-index:1;top:0;padding:8px 14px;background:#fff;border-bottom:1px solid #d7dfde}
@@ -40,25 +40,30 @@ a{color:#174f56;text-underline-offset:3px}
 .account-band .account-hidden{color:#96422e}
 .account-context{margin:0 0 4px;font-size:12px}
 #account-fallback .account-band{margin:0 4.166667% 4px;display:block}
+@media(max-width:550px){
+  .account-band{font-size:clamp(7px,1.9vw,10px);line-height:1.45;gap:2px 5px;margin-bottom:2px;padding:3px 5px;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+  .account-band ul{flex-basis:150px;grid-template-columns:repeat(auto-fit,minmax(min(100%,92px),1fr));gap:1px 5px}
+  .account-context{font-size:inherit}
+}
 </style>
 </head>
 <body>
 <main>
   <div id="loading" class="notice-status">
-    <p id="status" role="status">고지서를 불러오는 중입니다.</p>
-    <button type="button" id="retry" hidden>다시 불러오기</button>
+    <p id="status" role="status">고지기록을 가져오는 중입니다.</p>
+    <button type="button" id="retry" Hidden>다시 가져오기</button>
   </div>
-  <section id="notice" aria-label="차량별 과태료 고지서" hidden>
-    <div id="paper"><img id="png" alt="차량별 과태료 고지서"></div>
+  <section id="notice" aria-label="차량별 과태료 고지서" hide>
+    <div id="paper"><img id="png" alt="차량별 과태료 청구서"></div>
     <details id="other-photos" hidden>
       <summary>원본 사진</summary>
       <ul id="other-links"></ul>
     </details>
-    <section id="account-fallback" aria-label="건별 납부계좌" hidden></section>
+    <section id="account-fallback" aria-label="건별 불량계좌" Hidden></section>
   </section>
-  <section id="photo" aria-label="적발 사진" hidden>
+  <section id="photo" aria-label="적발 사진" 숨김>
     <div class="photo-tools">
-      <button type="button" id="back">← 고지서로 돌아가기</button>
+      <button type="button" id="back">←청구서로 돌아가기</button>
     </div>
     <p id="photo-status" class="notice-status" role="status"></p>
     <div id="photo-body"></div>
@@ -75,58 +80,58 @@ const photo = byId('photo');
 const back = byId('back');
 const photoBody = byId('photo-body');
 let returnTarget;
-let returnScroll = 0;
+returnScroll = 0;
 
-// The rider PNG was archived without a geometry sidecar. Read four narrow
-// strips of its table to locate the header and row rules at any screen width.
+// 라이더 PNG는 지오메트리 사이드카 없이 압축되었습니다. 4개의 좁은 영역을 읽으십시오.
+// 테이블의 헤더와 행 구분선을 제거하여 모든 화면 너비에서 헤더와 행 구분선을 찾을 수 있습니다.
 function archivedRows(image, count) {
   const {naturalWidth: width, naturalHeight: height} = image;
-  if (width !== 1440 || height < 600 || height > 20000) return null;
+  만약 너비가 1440이 아니거나, 높이가 600보다 작거나, 높이가 20000보다 크다면 null을 반환합니다.
   const samples = [552, 565, 920, 933];
   const canvas = document.createElement('canvas');
   canvas.width = samples.length;
   canvas.height = height;
   const ctx = canvas.getContext('2d', {willReadFrequently:true});
-  if (!ctx) return null;
+  ctx가 아닌 경우 null을 반환합니다.
   samples.forEach((x, column) => ctx.drawImage(image,x,0,1,height,column,0,1,height));
   const pixels = ctx.getImageData(0,0,samples.length,height).data;
-  canvas.width = canvas.height = 1;
+  캔버스의 너비 = 캔버스의 높이 = 1;
 
-  function colorAt(y, r, g, b) {
+  함수 colorAt(y, r, g, b) {
     return samples.every((_, column) => {
       const i = (y * samples.length + column) * 4;
-      return pixels[i] === r && pixels[i + 1] === g && pixels[i + 2] === b;
+      픽셀[i] === r && 픽셀[i + 1] === g && 픽셀[i + 2] === b를 반환합니다.
     });
   }
 
   const end = height - 164;
-  if (!colorAt(end + 30, 241,243,243)) return null;
-  let start = 0;
-  let tealRun = 0;
+  만약 colorAt(end + 30, 241, 243, 243)이 아니면 null을 반환합니다.
+  시작 값을 0으로 설정하세요.
+  tealRun을 0으로 설정하세요;
   for (let y = 0; y < end; y++) {
     if (colorAt(y,33,82,88)) {
       tealRun++;
-    } else {
-      if (tealRun === 60) start = y;
+    } 그렇지 않으면 {
+      (tealRun이 60이면) 시작 값은 y입니다.
       tealRun = 0;
     }
   }
-  if (!start) return null;
+  시작하지 않으면 null을 반환합니다.
   const boundaries = [start];
   for (let y = start; y < end - 1; y++) {
-    if (colorAt(y,235,239,239) && !colorAt(y + 1,235,239,239)) boundaries.push(y + 1);
+    if (colorAt(y,235,239,239) && !colorAt(y + 1,235,239,239)) 경계.push(y + 1);
   }
   boundaries.push(end);
-  if (boundaries.length !== count + 1) return null;
-  return boundaries.slice(0,-1).map((y,index) => ({top:y,bottom:boundaries[index+1]}));
+  경계의 길이가 개수 + 1과 같지 않으면 null을 반환합니다.
+  경계를 반환합니다.slice(0,-1).map((y,index) => ({top:y,bottom:boundaries[index+1]}));
 }
 
 function sourceOf(entry) {
   const matched = /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{15,100})(?:\/view)?(?:\?[A-Za-z0-9_=&%-]+)?$/.exec(entry.source);
-  return matched ? {url:entry.source,id:matched[1]} : null;
+  일치하는 항목을 반환 ? {url:entry.source,id:matched[1]} : null;
 }
 
-function selectPhoto(source, trigger) {
+함수 selectPhoto(source, trigger) {
   returnTarget = trigger;
   returnScroll = window.scrollY;
   notice.hidden = true;
@@ -138,27 +143,37 @@ function selectPhoto(source, trigger) {
   window.scrollTo(0,0);
 
   const image = document.createElement('img');
-  image.alt = '이 적발경위의 원본 사진 미리보기';
+  image.alt = '이적발경위의 원본 사진 미리보기';
   image.decoding = 'async';
   image.hidden = true;
+  const 크기 = innerWidth <= 550 ? 'w640' : 'w900';
+  const preview = new URL('https://lh3.googleusercontent.com/d/' + source.id + '=' + size);
+  const fallback = new URL('https://drive.google.com/thumbnail');
+  fallback.search = new URLSearchParams({id:source.id,sz:size});
+  const key = new URL(source.url).searchParams.get('resourcekey');
+  (키)인 경우 {
+    preview.searchParams.set('resourcekey',key);
+    fallback.searchParams.set('resourcekey',key);
+  }
   image.addEventListener('load', () => {
-    if (!image.isConnected) return;
+    이미지가 연결되지 않은 경우 반환;
     status.hidden = true;
     image.hidden = false;
   }, {once:true});
   image.addEventListener('error', () => {
-    if (image.isConnected) status.textContent = '사진을 불러오지 못했습니다. 고지서로 돌아가 다시 선택해 주세요.';
-  }, {once:true});
+    이미지가 연결되지 않은 경우 반환;
+    이미지의 출처가 미리보기의 참조와 같으면 {
+      image.src = fallback.href;
+      반환;
+    }
+    status.textContent = '사진을 기록오지했습니다. 고지서로 다시 선택해 주세요.';
+  });
   photoBody.replaceChildren(image);
-  const preview = new URL('https://drive.google.com/thumbnail');
-  preview.search = new URLSearchParams({id:source.id,sz:innerWidth<=550?'w640':'w900'});
-  const key = new URL(source.url).searchParams.get('resourcekey');
-  if (key) preview.searchParams.set('resourcekey',key);
   image.src = preview.href;
 }
 
 function returnToNotice() {
-  if (photo.hidden) return;
+  (photo.hidden)이면 반환됩니다
   photo.hidden = true;
   photoBody.replaceChildren();
   notice.hidden = false;
@@ -170,7 +185,7 @@ function showSourceList(entries) {
   const links = byId('other-links');
   entries.forEach(entry => {
     const source = sourceOf(entry);
-    if (!source) return;
+    소스가 아니면 반환됩니다
     const link = document.createElement('a');
     link.href = source.url;
     link.rel = 'noopener noreferrer';
@@ -184,23 +199,23 @@ function showSourceList(entries) {
 }
 
 function orderNotices(entries) {
-  return entries.slice().sort((a,b) =>
+  entry.slice().sort((a,b) =>를 반환합니다
     a.dueDate.localeCompare(b.dueDate) || b.amount-a.amount || a.violationAt.localeCompare(b.violationAt));
 }
 
 function photoButton(entry) {
   const source = sourceOf(entry);
-  if (!source) return null;
+  소스가 아닌 경우 null을 반환합니다.
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'photo-hit';
-  button.setAttribute('aria-label','적발경위 '+(entry.violation || '')+' 사진 보기');
+  Button.setAttribute('aria-label','적발경위 '+(entry.violation || '')+' 사진 보기');
   const label = document.createElement('span');
   label.className = 'photo-label';
   label.textContent = '[사진보기]';
   button.appendChild(label);
   button.addEventListener('click', () => selectPhoto(source,button));
-  return button;
+  돌아가기 버튼;
 }
 
 function accountBand(entry) {
@@ -210,7 +225,7 @@ function accountBand(entry) {
   heading.textContent = '납부계좌';
   block.appendChild(heading);
   const accounts = !entry.overdue && entry.dueDate && Array.isArray(entry.accounts) ? entry.accounts.slice(0,3) : [];
-  if (accounts.length) {
+  만약 (accounts.length) {
     const list = document.createElement('ul');
     accounts.forEach(account => {
       const number = document.createElement('li');
@@ -218,46 +233,46 @@ function accountBand(entry) {
       list.appendChild(number);
     });
     block.appendChild(list);
-  } else {
+  } 그렇지 않으면 {
     const status = document.createElement('p');
-    status.textContent = entry.overdue ? '기한 경과 · 최신 금액·계좌 확인 필요' : '계좌 정보 확인 필요';
-    if (entry.overdue) status.className = 'account-hidden';
+    status.textContent=entry.overdue ? '기한 경과 · 최신금액·계좌 확인 필요' : '계좌 정보 확인 필요';
+    만약 (항목이 기한을 넘겼고) 상태의 클래스 이름이 '계정 숨김'인 경우;
     block.appendChild(status);
   }
-  return block;
+  블록 반환;
 }
 
 function noticeSlice(top,bottom) {
   const slice = document.createElement('div');
-  const height = bottom - top;
+  const 높이 = 하단 - 상단;
   slice.className = 'notice-slice';
   slice.style.setProperty('--slice-aspect',png.naturalWidth+' / '+height);
   slice.style.setProperty('--slice-scale',(png.naturalHeight / height * 100)+'%');
   slice.style.setProperty('--slice-offset',(top / (png.naturalHeight - height) * 100)+'%');
-  return slice;
+  슬라이스를 반환합니다
 }
 
 function displayNotice(entries) {
-  const rows = archivedRows(png,entries.length);
-  const key = entry => JSON.stringify([entry.dueDate,entry.amount,entry.violationAt]);
+  const rows = archivedRows(png, entries.length);
+  const key = entry => JSON.stringify([entry.dueDate, entry.amount, entry.violationAt]);
   const ambiguous = entries.some((entry,index) => index > 0 &&
     key(entry) === key(entries[index-1]) && entry.source !== entries[index-1].source);
-  if (!rows || ambiguous) {
+  행이 모호한 경우 {
     showSourceList(entries);
     const accounts = byId('account-fallback');
     entries.forEach(entry => {
       const block = accountBand(entry);
       const date = document.createElement('h3');
       date.className = 'account-context';
-      date.textContent = entry.violationAt || entry.violation || '고지 내역';
+      date.textContent =entry.violationAt || 진입.위반 || '고지 내역';
       block.prepend(date);
       accounts.appendChild(block);
     });
     accounts.hidden = false;
-    return;
+    반환;
   }
 
-  // Each slice uses the same decoded PNG, so attaching rows adds no image requests.
+  // 각 슬라이스는 동일한 디코딩된 PNG를 사용하므로 행을 추가해도 이미지 요청이 추가되지 않습니다.
   paper.style.setProperty('--notice-image','url("'+png.src+'")');
   const bands = document.createDocumentFragment();
   bands.appendChild(noticeSlice(0,rows[0].top));
@@ -266,7 +281,7 @@ function displayNotice(entries) {
     const group = document.createElement('section');
     group.className = 'notice-entry';
     group.setAttribute('aria-label',[entry.violationAt,entry.violation].filter(Boolean).join(' · ') || '고지 내역');
-    const detail = noticeSlice(row.top,row.bottom);
+    const detail = noticeSlice(row.top, row.bottom);
     const button = photoButton(entry);
     if (button) detail.appendChild(button);
     const account = document.createElement('div');
@@ -280,40 +295,40 @@ function displayNotice(entries) {
   paper.appendChild(bands);
 }
 
-async function load() {
+비동기 함수 load() {
   const input = new URLSearchParams(location.hash.slice(1));
   const row = input.get('row') || '';
   const token = input.get('t') || '';
   const status = byId('status');
   byId('retry').hidden = true;
-  if (!/^[1-9][0-9]{0,6}$/.test(row) || Number(row) < 2 || !/^[a-f0-9]{64}$/.test(token)) {
-    status.textContent = '차량 고지서 주소를 확인해 주세요.';
-    return;
+  만약 (!/^[1-9][0-9]{0,6}$/.test(row) || Number(row) < 2 || !/^[a-f0-9]{64}$/.test(token)) {
+    status.textContent = '차량등록 주소를 확인해 주세요.';
+    반환;
   }
-  status.textContent = '고지서를 불러오는 중입니다.';
+  status.textContent = '고지기록을 불러오는 중입니다.';
   const endpoint = new URL(service);
   endpoint.search = new URLSearchParams({format:'notice-data',row,t:token});
   try {
     const response = await fetch(endpoint,{
       credentials:'omit',cache:'no-store',referrerPolicy:'no-referrer',signal:AbortSignal.timeout(15000)
     });
-    if (!response.ok) throw new Error('request');
+    응답이 정상적이지 않으면 '요청' 오류를 발생시킵니다.
     const payload = await response.json();
-    if (payload.status === 'unavailable') {
-      status.textContent = '열 수 없는 고지서입니다. 담당자에게 고지서 주소를 다시 요청해 주세요.';
-      return;
+    payload.status가 '사용할 수 없음'인 경우 {
+      status.textContent = '열수 없는 고지서입니다. 담당자에게 청구서 주소를 다시 요청해 주세요.';
+      반환;
     }
-    if (payload.status !== 'ok' || !Array.isArray(payload.notices) || !payload.notices.length ||
-        !/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]+={0,2}$/.test(payload.png)) throw new Error('no notice');
+    if (payload.status !== 'ok' || !payload.notices.isArray(payload.notices) || !payload.notices.length ||
+        !/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]+={0,2}$/.test(payload.png)) throw new Error('알림 없음');
     png.src = payload.png;
     await png.decode();
-    png.alt = payload.vehicle + ' 차량별 과태료 고지서';
+    png.alt = payload.vehicle + '차량별 과태료 고지서';
     notice.setAttribute('aria-label',png.alt);
     displayNotice(orderNotices(payload.notices));
     byId('loading').hidden = true;
     notice.hidden = false;
   } catch {
-    status.textContent = '고지서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    status.textContent = '고지기록 접수오지. 치료 후 다시 조치하시기 바랍니다.';
     byId('loading').hidden = false;
     byId('retry').hidden = false;
   }
