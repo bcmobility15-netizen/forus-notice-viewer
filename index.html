@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://script.google.com https://script.googleusercontent.com; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://script.google.com https://script.googleusercontent.com; img-src data: https://drive.google.com https://lh3.googleusercontent.com; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
 <title>포어스바이크 차량 과태료 안내</title>
 <style>
 :root{color-scheme:light;background:#edf2f1;color:#243234;font:15px/1.55 system-ui,"Malgun Gothic",sans-serif}
@@ -20,6 +20,12 @@ dt{color:#516365}dd{margin:0;overflow-wrap:anywhere}.overdue{color:#9a3a2c}
 h2{font-size:1rem;margin:0}ul{margin:7px 0 0;padding-left:1.3rem;color:#35464a}li{margin:3px 0}
 p{margin:7px 0}a{display:inline-block;margin:13px 0 0;color:#145d67}
 img{display:block;width:100%;height:auto;margin-top:15px;background:white}
+.photo-toggle{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:5px 12px;width:100%;min-height:44px;margin:-6px 0;padding:7px 10px;text-align:left;color:#145d67;cursor:pointer}
+.photo-toggle:focus-visible{outline:2px solid #145d67;outline-offset:2px}
+.photo-label{flex-shrink:0;font-size:.82rem;text-decoration:underline;text-underline-offset:3px}
+.photo-preview{grid-column:1 / -1;min-width:0;margin:6px 0;padding:8px;border:1px solid #d3e0de;border-radius:5px;background:#f4f8f7}
+.photo-preview img{max-height:70vh;margin:0;object-fit:contain;background:#f4f8f7}
+.photo-preview p{padding:3px 6px}
 [hidden]{display:none!important}
 </style>
 </head>
@@ -33,7 +39,17 @@ img{display:block;width:100%;height:auto;margin-top:15px;background:white}
     <select id="case"></select>
     <dl>
       <dt>위반일시</dt><dd id="at"></dd>
-      <dt>위반내용</dt><dd id="violation"></dd>
+      <dt>적발경위</dt>
+      <dd>
+        <span id="violation"></span>
+        <button type="button" class="photo-toggle" id="violation-photo" aria-controls="photo-preview" aria-expanded="false" hidden>
+          <span id="violation-link"></span><span class="photo-label" id="photo-label">사진 보기</span>
+        </button>
+      </dd>
+      <dd id="photo-preview" class="photo-preview" hidden>
+        <p id="photo-status" role="status"></p>
+        <div id="photo-media"></div>
+      </dd>
       <dt>납부기한</dt><dd id="due"></dd>
       <dt>고지금액</dt><dd id="amount"></dd>
     </dl>
@@ -50,16 +66,75 @@ const service = 'https://script.google.com/macros/s/AKfycbxLJFqQpij_9kWWAm-0Mwm1
 const byId = id => document.getElementById(id);
 const selector = byId('case');
 const retry = byId('retry');
+const photoToggle = byId('violation-photo');
+const photoPanel = byId('photo-preview');
+const photoMedia = byId('photo-media');
+const photoStatus = byId('photo-status');
+const originalPhoto = byId('source');
 let cases = [];
+let inlinePhotoUrl = '';
 
 function amount(value) {
   return Number.isFinite(value) ? value.toLocaleString('ko-KR') + '원' : '확인 필요';
 }
 
+function updatePhotoControl(source, violation) {
+  hidePhoto();
+  const match = /^https:\/\/drive\.google\.com\/file\/d\/([A-Za-z0-9_-]{15,100})(?:\/view)?(?:\?[A-Za-z0-9_=&%-]+)?$/.exec(source);
+  photoToggle.hidden = originalPhoto.hidden = !match;
+  byId('violation').hidden = Boolean(match);
+  byId('violation').textContent = byId('violation-link').textContent = violation || '확인 필요';
+  inlinePhotoUrl = '';
+  if (!match) {
+    originalPhoto.removeAttribute('href');
+    return;
+  }
+  originalPhoto.href = source;
+  const preview = new URL('https://drive.google.com/thumbnail');
+  preview.search = new URLSearchParams({id: match[1], sz: 'w1600'});
+  const key = new URL(source).searchParams.get('resourcekey');
+  if (key) preview.searchParams.set('resourcekey', key);
+  inlinePhotoUrl = preview.href;
+}
+
+function hidePhoto() {
+  photoPanel.hidden = true;
+  photoMedia.replaceChildren();
+  photoToggle.setAttribute('aria-expanded', 'false');
+  byId('photo-label').textContent = '사진 보기';
+}
+
+function togglePhoto() {
+  if (!photoPanel.hidden) {
+    hidePhoto();
+    return;
+  }
+  if (!inlinePhotoUrl) return;
+  photoToggle.setAttribute('aria-expanded', 'true');
+  byId('photo-label').textContent = '사진 닫기';
+  photoPanel.hidden = false;
+  photoStatus.textContent = '원본 사진을 불러오는 중입니다.';
+  photoStatus.hidden = false;
+  const image = document.createElement('img');
+  image.alt = '이 고지 건의 원본 사진 미리보기';
+  image.decoding = 'async';
+  image.hidden = true;
+  image.addEventListener('load', () => {
+    if (!image.isConnected) return;
+    photoStatus.hidden = true;
+    image.hidden = false;
+  }, {once:true});
+  image.addEventListener('error', () => {
+    if (image.isConnected) photoStatus.textContent = '미리보기를 불러올 수 없습니다. 원본 사진 열기를 이용해 주세요.';
+  }, {once:true});
+  photoMedia.appendChild(image);
+  image.src = inlinePhotoUrl;
+}
+
 function showCase() {
   const notice = cases[Number(selector.value)];
   byId('at').textContent = notice.violationAt || '확인 필요';
-  byId('violation').textContent = notice.violation || '확인 필요';
+  updatePhotoControl(notice.source, notice.violation);
   byId('due').textContent = notice.dueDate ? notice.dueDate + (notice.overdue ? ' · 기한 경과' : '') : '확인 필요';
   byId('due').classList.toggle('overdue', notice.overdue);
   byId('amount').textContent = amount(notice.amount);
@@ -73,10 +148,6 @@ function showCase() {
   const empty = byId('empty-accounts');
   empty.hidden = !accounts.hidden;
   empty.textContent = notice.overdue ? '납부기한이 지나 계좌를 표시하지 않습니다.' : '표시할 납부계좌가 없습니다.';
-  const photo = byId('source');
-  photo.hidden = !/^https:\/\/drive\.google\.com\/file\/d\/[A-Za-z0-9_-]{15,100}(?:\/view)?(?:\?[A-Za-z0-9_=&%-]+)?$/.test(notice.source);
-  if (photo.hidden) photo.removeAttribute('href');
-  else photo.href = notice.source;
 }
 
 async function load() {
@@ -121,6 +192,7 @@ async function load() {
   }
 }
 selector.addEventListener('change', showCase);
+photoToggle.addEventListener('click', togglePhoto);
 retry.addEventListener('click', load);
 load();
 </script>
