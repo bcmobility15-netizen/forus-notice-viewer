@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src https://script.google.com https://script.googleusercontent.com; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'">
+<title>포어스바이크 차량 과태료 안내</title>
+<style>
+:root{color-scheme:light;background:#edf2f1;color:#243234;font:15px/1.55 system-ui,"Malgun Gothic",sans-serif}
+body{margin:0}main{max-width:768px;margin:auto;padding:18px 14px 36px}
+.brand{color:#516365;margin:0 0 4px;font-size:.85rem;font-weight:650}
+h1{margin:0 0 14px;color:#204e56;font-size:clamp(1.35rem,4.8vw,2rem);line-height:1.25}
+.card{background:white;border-top:3px solid #245761;padding:16px 19px}
+label{display:block;font-weight:650;margin-bottom:8px}
+select,button{max-width:100%;font:inherit;color:inherit;background:white;border:1px solid #a6baba;border-radius:4px;padding:7px 11px}
+dl{display:grid;grid-template-columns:5.15rem 1fr;gap:6px 14px;margin:18px 0}
+dt{color:#516365}dd{margin:0;overflow-wrap:anywhere}.overdue{color:#9a3a2c}
+h2{font-size:1rem;margin:0}ul{margin:7px 0 0;padding-left:1.3rem;color:#35464a}li{margin:3px 0}
+p{margin:7px 0}a{display:inline-block;margin:13px 0 0;color:#145d67}
+img{display:block;width:100%;height:auto;margin-top:15px;background:white}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <p class="brand">포어스바이크</p>
+  <h1 id="title">차량 과태료 안내</h1>
+  <div class="card" id="loading"><p id="status" role="status">안내서를 불러오는 중입니다.</p><button type="button" id="retry" hidden>다시 불러오기</button></div>
+  <div class="card" id="details" hidden>
+    <label for="case">고지 내역</label>
+    <select id="case"></select>
+    <dl>
+      <dt>위반일시</dt><dd id="at"></dd>
+      <dt>위반내용</dt><dd id="violation"></dd>
+      <dt>납부기한</dt><dd id="due"></dd>
+      <dt>고지금액</dt><dd id="amount"></dd>
+    </dl>
+    <h2>건별 납부계좌</h2>
+    <ul id="accounts" hidden></ul>
+    <p id="empty-accounts" hidden></p>
+    <a id="source" rel="noopener noreferrer" target="_blank" hidden>원본 사진 열기</a>
+  </div>
+  <img id="png" alt="차량별 과태료 안내서" hidden>
+</main>
+<script>
+'use strict';
+const service = 'https://script.google.com/macros/s/AKfycbxLJFqQpij_9kWWAm-0Mwm1qEiPBcNencVLPBD3ttyvpegrQJ9nIkbdVDLhWnLtbTIn6A/exec';
+const byId = id => document.getElementById(id);
+const selector = byId('case');
+const retry = byId('retry');
+let cases = [];
+
+function amount(value) {
+  return Number.isFinite(value) ? value.toLocaleString('ko-KR') + '원' : '확인 필요';
+}
+
+function showCase() {
+  const notice = cases[Number(selector.value)];
+  byId('at').textContent = notice.violationAt || '확인 필요';
+  byId('violation').textContent = notice.violation || '확인 필요';
+  byId('due').textContent = notice.dueDate ? notice.dueDate + (notice.overdue ? ' · 기한 경과' : '') : '확인 필요';
+  byId('due').classList.toggle('overdue', notice.overdue);
+  byId('amount').textContent = amount(notice.amount);
+  const accounts = byId('accounts');
+  accounts.replaceChildren(...notice.accounts.map(value => {
+    const item = document.createElement('li');
+    item.textContent = value;
+    return item;
+  }));
+  accounts.hidden = !notice.accounts.length;
+  const empty = byId('empty-accounts');
+  empty.hidden = !accounts.hidden;
+  empty.textContent = notice.overdue ? '납부기한이 지나 계좌를 표시하지 않습니다.' : '표시할 납부계좌가 없습니다.';
+  const photo = byId('source');
+  photo.hidden = !/^https:\/\/drive\.google\.com\/file\/d\/[A-Za-z0-9_-]{15,100}(?:\/view)?(?:\?[A-Za-z0-9_=&%-]+)?$/.test(notice.source);
+  if (photo.hidden) photo.removeAttribute('href');
+  else photo.href = notice.source;
+}
+
+async function load() {
+  const input = new URLSearchParams(location.hash.slice(1));
+  const row = input.get('row') || '';
+  const token = input.get('t') || '';
+  const status = byId('status');
+  retry.hidden = true;
+  if (!/^[1-9][0-9]{0,6}$/.test(row) || Number(row) < 2 || !/^[a-f0-9]{64}$/.test(token)) {
+    status.textContent = '차량 안내서 주소를 확인해 주세요.';
+    return;
+  }
+  status.textContent = '안내서를 불러오는 중입니다.';
+  const endpoint = new URL(service);
+  endpoint.search = new URLSearchParams({format:'notice-data',row,t:token});
+  try {
+    const response = await fetch(endpoint, {
+      credentials:'omit', cache:'no-store', referrerPolicy:'no-referrer', signal:AbortSignal.timeout(15000)
+    });
+    if (!response.ok) throw new Error('request');
+    const payload = await response.json();
+    if (payload.status === 'unavailable') {
+      status.textContent = '열 수 없는 안내서입니다. 담당자에게 차량 안내서 주소를 다시 요청해 주세요.';
+      return;
+    }
+    if (payload.status !== 'ok' || !Array.isArray(payload.notices) || !payload.notices.length ||
+        !/^data:image\/png;base64,iVBORw0KGgo[A-Za-z0-9+/]+={0,2}$/.test(payload.png)) throw new Error('no notice');
+    const png = byId('png');
+    png.src = payload.png;
+    await png.decode();
+    cases = payload.notices;
+    byId('title').textContent = payload.vehicle + ' 차량 과태료 안내';
+    document.querySelector('label[for="case"]').textContent = '고지 내역 ' + cases.length + '건';
+    selector.replaceChildren(...cases.map((notice, index) =>
+      new Option(notice.violationAt.slice(0, 10) + ' · ' + amount(notice.amount), String(index))));
+    showCase();
+    byId('loading').hidden = true;
+    byId('details').hidden = png.hidden = false;
+  } catch {
+    status.textContent = '안내서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.';
+    retry.hidden = false;
+  }
+}
+selector.addEventListener('change', showCase);
+retry.addEventListener('click', load);
+load();
+</script>
+</body>
+</html>
